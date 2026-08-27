@@ -1,5 +1,5 @@
 from pathlib import Path
-from database import save_user, save_message
+from database import save_user, save_message, save_video, update_video
 from telegram_api import send_message, get_file, send_video_note
 from video import save_original, get_duration, convert_video
 
@@ -50,12 +50,23 @@ async def handle_update(client, token, update):
     )
         
     if video is not None and video["duration"] > 60:
-        await send_message(
+        response = await send_message(
             client,
             token,
             chat_id,
             "Видео слишком длинное. Пожалуйста, пришлите ролик до 60 секунд"
         )
+        if response.get("ok"):
+            sent_message = response["result"]
+
+            await save_message(
+                telegram_message_id=sent_message["message_id"],
+                user_id=user["id"],
+                direction="outgoing",
+                message_type="text",
+                text=sent_message.get("text")
+            )
+
         return
         
     if video_file is not None:
@@ -74,23 +85,47 @@ async def handle_update(client, token, update):
             suffix
         )
 
-        print("SAVED:", original_path, flush=True)
-        
         duration = await get_duration(original_path)
+        video_id = await save_video(
+            user_id=user["id"],
+            telegram_file_id=file_id,
+            duration=duration,
+            original_path=original_path
+        )
         
         if duration > 60:
-            await send_message(
+            await update_video(
+                video_id,
+                status="rejected"
+            )
+            
+            response = await send_message(
                 client,
                 token,
                 chat_id,
                 "Видео слишком длинное. Пожалуйста, пришлите ролик до 60 секунд"
             )
             
+            if response.get("ok"):
+                sent_message = response["result"]
+
+                await save_message(
+                    telegram_message_id=sent_message["message_id"],
+                    user_id=user["id"],
+                    direction="outgoing",
+                    message_type="text",
+                    text=sent_message.get("text")
+                )
+
             return
         
         converted_name = f"{Path(file_name).stem}.mp4"
         converted_path = Path("/storage/converted") / converted_name
-
+        await update_video(
+            video_id,
+            status="processing"
+        )
+        
         await convert_video(
             original_path,
             converted_path
@@ -112,7 +147,11 @@ async def handle_update(client, token, update):
                 message_type="video_note",
                 text=None
             )
-
+            await update_video(
+                video_id,
+                status="completed",
+                converted_path=converted_path
+            )
         return
         
     if text == "/start":
@@ -136,3 +175,21 @@ async def handle_update(client, token, update):
             )
 
         return
+    
+    response = await send_message(
+        client,
+        token,
+        chat_id,
+        "Пожалуйста, отправьте видео до 60 секунд."
+    )
+
+    if response.get("ok"):
+        sent_message = response["result"]
+
+        await save_message(
+            telegram_message_id=sent_message["message_id"],
+            user_id=user["id"],
+            direction="outgoing",
+            message_type="text",
+            text=sent_message.get("text")
+        )

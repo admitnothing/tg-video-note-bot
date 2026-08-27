@@ -59,3 +59,49 @@ async def save_message(
         "text": text,
         "created_at": datetime.now(timezone.utc)
     })
+    
+    
+async def save_video(
+    user_id,
+    telegram_file_id,
+    duration,
+    original_path,
+    converted_path=None,
+    status="received"
+):
+    now = datetime.now(timezone.utc)
+
+    result = await videos.insert_one({
+        "user_id": user_id,
+        "telegram_file_id": telegram_file_id,
+        "duration": duration,
+        "original_path": str(original_path),
+        "converted_path": str(converted_path) if converted_path else None,
+        "status": status,
+        "created_at": now,
+        "updated_at": now
+    })
+
+    return result.inserted_id 
+
+
+async def update_video(
+    video_id,
+    *,
+    status=None,
+    converted_path=None
+):
+    updates = {
+        "updated_at": datetime.now(timezone.utc)
+    }
+
+    if status is not None:
+        updates["status"] = status
+
+    if converted_path is not None:
+        updates["converted_path"] = str(converted_path)
+
+    await videos.update_one(
+        {"_id": video_id},
+        {"$set": updates}
+    )   
