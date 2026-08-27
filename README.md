@@ -56,7 +56,7 @@ tg-video-note-bot/
 ### 1. Клонировать репозиторий
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/admitnothing/tg-video-note-bot
 cd tg-video-note-bot
 ```
 
