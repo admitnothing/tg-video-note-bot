@@ -3,6 +3,29 @@ from database import save_user, save_message, save_video, update_video
 from telegram_api import send_message, get_file, send_video_note
 from video import save_original, get_duration, convert_video
 
+
+async def send_and_save_text(client, token, chat_id, user_id, text):
+    response = await send_message(
+        client,
+        token,
+        chat_id,
+        text
+    )
+
+    if response.get("ok"):
+        sent_message = response["result"]
+
+        await save_message(
+            telegram_message_id=sent_message["message_id"],
+            user_id=user_id,
+            direction="outgoing",
+            message_type="text",
+            text=sent_message.get("text")
+        )
+
+    return response
+
+
 async def handle_update(client, token, update):
     message = update.get("message")
 
@@ -50,25 +73,16 @@ async def handle_update(client, token, update):
     )
         
     if video is not None and video["duration"] > 60:
-        response = await send_message(
+        await send_and_save_text(
             client,
             token,
             chat_id,
+            user["id"],
             "Видео слишком длинное. Пожалуйста, пришлите ролик до 60 секунд"
         )
-        if response.get("ok"):
-            sent_message = response["result"]
-
-            await save_message(
-                telegram_message_id=sent_message["message_id"],
-                user_id=user["id"],
-                direction="outgoing",
-                message_type="text",
-                text=sent_message.get("text")
-            )
 
         return
-        
+                
     if video_file is not None:
         file_id = video_file["file_id"]
         file_data = await get_file(
@@ -98,24 +112,14 @@ async def handle_update(client, token, update):
                 video_id,
                 status="rejected"
             )
-            
-            response = await send_message(
+
+            await send_and_save_text(
                 client,
                 token,
                 chat_id,
+                user["id"],
                 "Видео слишком длинное. Пожалуйста, пришлите ролик до 60 секунд"
             )
-            
-            if response.get("ok"):
-                sent_message = response["result"]
-
-                await save_message(
-                    telegram_message_id=sent_message["message_id"],
-                    user_id=user["id"],
-                    direction="outgoing",
-                    message_type="text",
-                    text=sent_message.get("text")
-                )
 
             return
         
@@ -139,22 +143,23 @@ async def handle_update(client, token, update):
                 converted_path
             )
 
-            if response.get("ok"):
-                sent_message = response["result"]
+            if not response.get("ok"):
+                raise RuntimeError("Telegram failed to send video note")
+            sent_message = response["result"]
 
-                await save_message(
-                    telegram_message_id=sent_message["message_id"],
-                    user_id=user["id"],
-                    direction="outgoing",
-                    message_type="video_note",
-                    text=None
-                )
+            await save_message(
+                telegram_message_id=sent_message["message_id"],
+                user_id=user["id"],
+                direction="outgoing",
+                message_type="video_note",
+                text=None
+            )
 
-                await update_video(
-                    video_id,
-                    status="completed",
-                    converted_path=converted_path
-                )
+            await update_video(
+                video_id,
+                status="completed",
+                converted_path=converted_path
+            )
 
         except Exception as error:
             await update_video(
@@ -167,62 +172,31 @@ async def handle_update(client, token, update):
                 flush=True
             )
 
-            response = await send_message(
+            await send_and_save_text(
                 client,
                 token,
                 chat_id,
+                user["id"],
                 "Не удалось обработать видео. Попробуйте ещё раз."
             )
-
-            if response.get("ok"):
-                sent_message = response["result"]
-
-                await save_message(
-                    telegram_message_id=sent_message["message_id"],
-                    user_id=user["id"],
-                    direction="outgoing",
-                    message_type="text",
-                    text=sent_message.get("text")
-                )
 
         return
         
     if text == "/start":
-        response = await send_message(
+        await send_and_save_text(
             client,
             token,
             chat_id,
+            user["id"],
             "Привет! Отправь мне видео до 60 секунд, "
             "и я превращу его в кружочек."
         )
-
-        if response.get("ok"):
-            sent_message = response["result"]
-
-            await save_message(
-                telegram_message_id=sent_message["message_id"],
-                user_id=user["id"],
-                direction="outgoing",
-                message_type="text",
-                text=sent_message.get("text")
-            )
-
         return
     
-    response = await send_message(
+    await send_and_save_text(
         client,
         token,
         chat_id,
+        user["id"],
         "Пожалуйста, отправьте видео до 60 секунд."
     )
-
-    if response.get("ok"):
-        sent_message = response["result"]
-
-        await save_message(
-            telegram_message_id=sent_message["message_id"],
-            user_id=user["id"],
-            direction="outgoing",
-            message_type="text",
-            text=sent_message.get("text")
-        )
