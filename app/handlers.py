@@ -126,12 +126,6 @@ async def handle_update(client, token, update):
             duration=duration,
             original_path=original_path
         )
-        video_id = await save_video(
-            user_id=user["id"],
-            telegram_file_id=file_id,
-            duration=duration,
-            original_path=original_path
-        )
         
         if duration > 60:
             await update_video(
