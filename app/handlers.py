@@ -1,6 +1,7 @@
 from database import save_user, save_message
 from telegram_api import send_message, get_file
-
+from pathlib import Path
+from video import save_original
 
 async def handle_update(client, token, update):
     message = update.get("message")
@@ -48,7 +49,17 @@ async def handle_update(client, token, update):
             file_id
         )
         telegram_file_path = file_data["result"]["file_path"]
-        print(telegram_file_path, flush=True) 
+        
+        suffix = Path(telegram_file_path).suffix or ".mp4"
+
+        file_name, original_path = await save_original(
+            telegram_file_path,
+            suffix
+        )
+
+        print("SAVED:", original_path, flush=True)
+        
+        return
     
     await save_message(
         telegram_message_id=message["message_id"],
