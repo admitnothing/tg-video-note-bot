@@ -45,3 +45,30 @@ async def get_file(client, token, file_id):
     response.raise_for_status()
 
     return response.json()
+
+
+async def send_video_note(client, token, chat_id, file_path):
+    url = f"{API_BASE}/bot{token}/sendVideoNote"
+
+    with open(file_path, "rb") as video_file:
+        files = {
+            "video_note": (
+                "video_note.mp4",
+                video_file,
+                "video/mp4"
+            )
+        }
+
+        data = {
+            "chat_id": str(chat_id)
+        }
+
+        response = await client.post(
+            url,
+            data=data,
+            files=files
+        )
+
+    response.raise_for_status()
+
+    return response.json()

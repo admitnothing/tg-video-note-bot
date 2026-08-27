@@ -6,6 +6,7 @@ from pathlib import Path
 
 ORIGINALS_DIR = Path("/storage/originals")
 CONVERTED_DIR = Path("/storage/converted")
+SEMAPHORE = asyncio.Semaphore(2)
 
 
 async def save_original(source_path, suffix):
@@ -44,3 +45,51 @@ async def get_duration(file_path):
         raise RuntimeError(f"FFprobe failed:\n{error}")
 
     return float(stdout.decode().strip())
+
+
+async def convert_video(input_path, output_path):
+    async with SEMAPHORE:
+        process = await asyncio.create_subprocess_exec(
+            "ffmpeg",
+            "-y",
+            "-i", str(input_path),
+
+            "-vf",
+            (
+                "crop='min(iw,ih)':'min(iw,ih)',"
+                "scale='min(640,iw)':'min(640,ih)'"
+            ),
+
+            "-c:v", "libx264",
+            "-preset", "medium",
+            "-crf", "23",
+
+            "-c:a", "aac",
+            "-b:a", "128k",
+
+            "-movflags", "+faststart",
+
+            str(output_path),
+
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE
+        )
+
+        try:
+            _, stderr = await asyncio.wait_for(
+                process.communicate(),
+                timeout=120
+            )
+
+        except TimeoutError:
+            process.kill()
+            await process.wait()
+            raise RuntimeError("Video conversion timed out")
+
+        if process.returncode != 0:
+            error = stderr.decode(errors="replace")
+            raise RuntimeError(
+                f"FFmpeg conversion failed:\n{error}"
+            )
+
+    return output_path

@@ -1,7 +1,7 @@
-from database import save_user, save_message
-from telegram_api import send_message, get_file
 from pathlib import Path
-from video import save_original, get_duration
+from database import save_user, save_message
+from telegram_api import send_message, get_file, send_video_note
+from video import save_original, get_duration, convert_video
 
 async def handle_update(client, token, update):
     message = update.get("message")
@@ -40,6 +40,23 @@ async def handle_update(client, token, update):
     else:
         message_type = "other"
         video_file = None
+    
+    await save_message(
+        telegram_message_id=message["message_id"],
+        user_id=user["id"],
+        direction="incoming",
+        message_type=message_type,
+        text=text
+    )
+        
+    if video is not None and video["duration"] > 60:
+        await send_message(
+            client,
+            token,
+            chat_id,
+            "Видео слишком длинное. Пожалуйста, пришлите ролик до 60 секунд"
+        )
+        return
         
     if video_file is not None:
         file_id = video_file["file_id"]
@@ -61,18 +78,43 @@ async def handle_update(client, token, update):
         
         duration = await get_duration(original_path)
         
-        print("DURATION:", duration, flush=True)
+        if duration > 60:
+            await send_message(
+                client,
+                token,
+                chat_id,
+                "Видео слишком длинное. Пожалуйста, пришлите ролик до 60 секунд"
+            )
+            
+            return
         
+        converted_name = f"{Path(file_name).stem}.mp4"
+        converted_path = Path("/storage/converted") / converted_name
+
+        await convert_video(
+            original_path,
+            converted_path
+        )
+        response = await send_video_note(
+            client,
+            token,
+            chat_id,
+            converted_path
+        )
+
+        if response.get("ok"):
+            sent_message = response["result"]
+
+            await save_message(
+                telegram_message_id=sent_message["message_id"],
+                user_id=user["id"],
+                direction="outgoing",
+                message_type="video_note",
+                text=None
+            )
+
         return
-    
-    await save_message(
-        telegram_message_id=message["message_id"],
-        user_id=user["id"],
-        direction="incoming",
-        message_type=message_type,
-        text=text
-    )
-    
+        
     if text == "/start":
         response = await send_message(
             client,
