@@ -42,3 +42,20 @@ async def save_user(telegram_id, username, first_name):
         },
         upsert=True
     )
+
+
+async def save_message(
+    telegram_message_id,
+    user_id,
+    direction,
+    message_type,
+    text=None
+):
+    await messages.insert_one({
+        "telegram_message_id": telegram_message_id,
+        "user_id": user_id,
+        "direction": direction,
+        "type": message_type,
+        "text": text,
+        "created_at": datetime.now(timezone.utc)
+    })
