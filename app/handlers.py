@@ -125,33 +125,66 @@ async def handle_update(client, token, update):
             video_id,
             status="processing"
         )
-        
-        await convert_video(
-            original_path,
-            converted_path
-        )
-        response = await send_video_note(
-            client,
-            token,
-            chat_id,
-            converted_path
-        )
 
-        if response.get("ok"):
-            sent_message = response["result"]
-
-            await save_message(
-                telegram_message_id=sent_message["message_id"],
-                user_id=user["id"],
-                direction="outgoing",
-                message_type="video_note",
-                text=None
+        try:
+            await convert_video(
+                original_path,
+                converted_path
             )
+
+            response = await send_video_note(
+                client,
+                token,
+                chat_id,
+                converted_path
+            )
+
+            if response.get("ok"):
+                sent_message = response["result"]
+
+                await save_message(
+                    telegram_message_id=sent_message["message_id"],
+                    user_id=user["id"],
+                    direction="outgoing",
+                    message_type="video_note",
+                    text=None
+                )
+
+                await update_video(
+                    video_id,
+                    status="completed",
+                    converted_path=converted_path
+                )
+
+        except Exception as error:
             await update_video(
                 video_id,
-                status="completed",
-                converted_path=converted_path
+                status="failed"
             )
+
+            print(
+                f"Video {video_id} failed: {error}",
+                flush=True
+            )
+
+            response = await send_message(
+                client,
+                token,
+                chat_id,
+                "Не удалось обработать видео. Попробуйте ещё раз."
+            )
+
+            if response.get("ok"):
+                sent_message = response["result"]
+
+                await save_message(
+                    telegram_message_id=sent_message["message_id"],
+                    user_id=user["id"],
+                    direction="outgoing",
+                    message_type="text",
+                    text=sent_message.get("text")
+                )
+
         return
         
     if text == "/start":
