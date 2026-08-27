@@ -1,7 +1,7 @@
 from database import save_user, save_message
 from telegram_api import send_message, get_file
 from pathlib import Path
-from video import save_original
+from video import save_original, get_duration
 
 async def handle_update(client, token, update):
     message = update.get("message")
@@ -58,6 +58,10 @@ async def handle_update(client, token, update):
         )
 
         print("SAVED:", original_path, flush=True)
+        
+        duration = await get_duration(original_path)
+        
+        print("DURATION:", duration, flush=True)
         
         return
     

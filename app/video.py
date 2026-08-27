@@ -24,3 +24,23 @@ async def save_original(source_path, suffix):
     )
 
     return file_name, destination
+
+
+async def get_duration(file_path):
+    process = await asyncio.create_subprocess_exec(
+        "ffprobe",
+        "-v", "error",
+        "-show_entries", "format=duration",
+        "-of", "default=noprint_wrappers=1:nokey=1",
+        str(file_path),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
+    )
+
+    stdout, stderr = await process.communicate()
+
+    if process.returncode != 0:
+        error = stderr.decode(errors="replace")
+        raise RuntimeError(f"FFprobe failed:\n{error}")
+
+    return float(stdout.decode().strip())
