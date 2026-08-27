@@ -33,11 +33,28 @@ async def main():
             for update in data["result"]:
                 offset = update["update_id"] + 1
 
-                await handle_update(
-                    client,
-                    token,
-                    update
+                asyncio.create_task(
+                    process_update(
+                        client,
+                        token,
+                        update
+                    )
                 )
 
+    
+async def process_update(client, token, update):
+    try:
+        await handle_update(
+            client,
+            token,
+            update
+        )
+    except Exception as error:
+        print(
+            f"Update {update.get('update_id')} failed: {error}",
+            flush=True
+        )
+        
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(main())        

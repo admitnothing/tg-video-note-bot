@@ -41,7 +41,8 @@ async def get_file(client, token, file_id):
         "file_id": file_id
     }
 
-    response = await client.get(url, params=params)
+    response = await client.get(url, params=params, timeout=120)
+    
     response.raise_for_status()
 
     return response.json()
