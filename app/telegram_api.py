@@ -32,3 +32,16 @@ async def send_message(client, token, chat_id, text):
     response.raise_for_status()
 
     return response.json()
+
+
+async def get_file(client, token, file_id):
+    url = f"{API_BASE}/bot{token}/getFile"
+
+    params = {
+        "file_id": file_id
+    }
+
+    response = await client.get(url, params=params)
+    response.raise_for_status()
+
+    return response.json()
