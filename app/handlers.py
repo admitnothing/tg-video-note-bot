@@ -84,22 +84,48 @@ async def handle_update(client, token, update):
         return
                 
     if video_file is not None:
-        file_id = video_file["file_id"]
-        file_data = await get_file(
-            client,
-            token,
-            file_id
-        )
-        telegram_file_path = file_data["result"]["file_path"]
-        
-        suffix = Path(telegram_file_path).suffix or ".mp4"
+        try:
+            file_id = video_file["file_id"]
 
-        file_name, original_path = await save_original(
-            telegram_file_path,
-            suffix
-        )
+            file_data = await get_file(
+                client,
+                token,
+                file_id
+            )
 
-        duration = await get_duration(original_path)
+            telegram_file_path = file_data["result"]["file_path"]
+
+            suffix = Path(telegram_file_path).suffix or ".mp4"
+
+            file_name, original_path = await save_original(
+                telegram_file_path,
+                suffix
+            )
+
+            duration = await get_duration(original_path)
+
+        except Exception as error:
+            print(
+                f"Video preparation failed: {error}",
+                flush=True
+            )
+
+            await send_and_save_text(
+                client,
+                token,
+                chat_id,
+                user["id"],
+                "Не удалось обработать видео. Попробуйте ещё раз или отправьте другое видео."
+            )
+
+            return
+
+        video_id = await save_video(
+            user_id=user["id"],
+            telegram_file_id=file_id,
+            duration=duration,
+            original_path=original_path
+        )
         video_id = await save_video(
             user_id=user["id"],
             telegram_file_id=file_id,
@@ -177,7 +203,7 @@ async def handle_update(client, token, update):
                 token,
                 chat_id,
                 user["id"],
-                "Не удалось обработать видео. Попробуйте ещё раз."
+                "Не удалось обработать видео. Попробуйте ещё раз или отправьте другое видео."
             )
 
         return
